@@ -38,7 +38,7 @@ All commands go to one receiver and print their result; result code `1` means th
 R="-n net.buznik.schedule/.AlarmReceiver"
 adb shell am broadcast $R                                    # list schedules (JSON)
 adb shell am broadcast $R --es action add --es app <package> --ei hour 7 --ei minute 30 \
-    --es date 2026-11-18 --es rrule "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"   # prints the new id
+    --es date 2026-11-18 --es rrule "'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR'"   # prints the new id
 adb shell am broadcast $R --es action update --es id <id> --ez enabled false
 adb shell am broadcast $R --es action delete --es id <id>
 adb shell am broadcast $R --es action run [--es id <id>]                  # run now
@@ -47,7 +47,8 @@ adb shell am broadcast $R --es action test --ei in_seconds 120 [--es id <id>]  #
 
 `add`/`update` accept any of `app`, `hour`, `minute` (`--ei`), `date` (`YYYY-MM-DD`), `rrule`, `enabled` (`--ez`).
 `rrule` is an RFC 5545 subset: `FREQ` (DAILY/WEEKLY/MONTHLY/YEARLY), `INTERVAL`, `BYDAY` (`MO,WE` for weekly; `3WE` or
-`-1FR` for monthly), `UNTIL=YYYYMMDD`, `COUNT`. An empty `rrule` means "does not repeat". Find package names with
+`-1FR` for monthly), `UNTIL=YYYYMMDD`, `COUNT`. An empty `rrule` means "does not repeat". `adb shell` runs the command through the device shell again, so a rule containing
+`;` needs the inner single quotes shown above. Find package names with
 `adb shell pm list packages | grep -i <name>`.
 
 ## Release signing

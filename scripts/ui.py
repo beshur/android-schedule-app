@@ -1,4 +1,4 @@
-"""Tap UI elements by visible text via uiautomator. Usage: ui.py tap|long <text>"""
+"""Tap UI elements by visible text via uiautomator. Usage: ui.py tap|long|next <text> (next = the element after it)"""
 import re, subprocess, sys, xml.etree.ElementTree as ET
 
 def nodes():
@@ -10,11 +10,14 @@ def nodes():
             yield t, n.get("bounds")
 
 cmd, text = sys.argv[1], sys.argv[2]
-for t, b in nodes():
+found = list(nodes())
+for i, (t, b) in enumerate(found):
     if t == text:
+        if cmd == "next":
+            t, b = found[i + 1]
         x1, y1, x2, y2 = map(int, re.findall(r"\d+", b))
         x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
-        args = ["tap", x, y] if cmd == "tap" else ["swipe", x, y, x, y, "1200"]
+        args = ["swipe", x, y, x, y, "1200"] if cmd == "long" else ["tap", x, y]
         subprocess.run(["adb", "shell", "input", *args])
         sys.exit(0)
-sys.exit(f"not found: {text!r}; on screen: {[t for t, _ in nodes()]}")
+sys.exit(f"not found: {text!r}; on screen: {[t for t, _ in found]}")
