@@ -76,8 +76,9 @@ fun occurrences(start: LocalDate, rule: Rule?): Sequence<LocalDate> = sequence {
             Freq.MONTHLY -> {
                 val month = YearMonth.from(start).plusMonths(step)
                 listOfNotNull(
-                    if (rule.nth == 0) month.atDay(start.dayOfMonth).takeIf { start.dayOfMonth <= month.lengthOfMonth() }
-                    else nthWeekday(month, rule.days.first(), rule.nth)
+                    if (rule.nth != 0) nthWeekday(month, rule.days.first(), rule.nth)
+                    else if (start.dayOfMonth <= month.lengthOfMonth()) month.atDay(start.dayOfMonth)
+                    else null
                 )
             }
             Freq.YEARLY -> {
