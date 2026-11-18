@@ -11,7 +11,7 @@ app=$(adb shell cmd package query-activities --brief -a android.intent.action.MA
   | tr -d '\r ' | grep / | grep -v net.buznik | head -1 | cut -d/ -f1)
 echo "sample app: $app"
 adb shell am broadcast $R --es action add --es app "$app" --ei hour 8 --ei minute 0 \
-  --es rrule "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+  --es rrule "'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'"
 adb shell am broadcast $R --es action add --ei hour 7 --ei minute 30 --es rrule "'FREQ=MONTHLY;BYDAY=-1FR'"
 adb shell am broadcast $R --es action add --es app "$app" --ei hour 10 --ei minute 15 \
   --es rrule "'FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,SU;COUNT=10'" --ez enabled false
@@ -20,9 +20,9 @@ adb shell am broadcast $R
 adb shell am start -W -n net.buznik.schedule/.MainActivity
 shot 01-list-accessibility-off
 
+adb shell am force-stop net.buznik.schedule
 adb shell settings put secure enabled_accessibility_services net.buznik.schedule/.WakeService
 adb shell settings put secure accessibility_enabled 1
-adb shell am force-stop net.buznik.schedule
 sleep 3
 adb shell am start -W -n net.buznik.schedule/.MainActivity
 shot 02-list
