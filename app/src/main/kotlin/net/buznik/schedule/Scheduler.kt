@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import org.json.JSONArray
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -27,26 +28,30 @@ object Scheduler {
 
     fun reschedule(ctx: Context, after: LocalDateTime = LocalDateTime.now()) {
         val next = Store.load(ctx).filter { it.enabled }.mapNotNull { it.next(after) }.minOrNull()
-        if (next == null) alarms(ctx).cancel(pending(ctx, null)) else set(ctx, next.millis(), null)
+        val pi = pending(ctx, 0, Intent().apply { next?.let { putExtra("at", it.millis()) } })
+        if (next == null) alarms(ctx).cancel(pi) else alarms(ctx).setAlarmClock(AlarmManager.AlarmClockInfo(next.millis(), null), pi)
     }
 
-    fun set(ctx: Context, at: Long, id: String?) =
-        alarms(ctx).setAlarmClock(AlarmManager.AlarmClockInfo(at, null), pending(ctx, id))
+    fun test(ctx: Context, at: Long, id: String) =
+        alarms(ctx).setAlarmClock(AlarmManager.AlarmClockInfo(at, null), pending(ctx, 1, Intent().putExtra("id", id)))
 
-    fun onAlarm(ctx: Context, id: String?) {
-        val now = LocalDateTime.now()
+    fun onAlarm(ctx: Context, intent: Intent) {
         val list = Store.load(ctx)
-        val due = if (id != null) list.find { it.id == id }
-        else list.filter { it.enabled }.firstOrNull { s ->
-            s.next(now.minusMinutes(10))?.let { it <= now.plusMinutes(1) } == true
+        val id = intent.getStringExtra("id")
+        if (id != null) {
+            list.find { it.id == id }?.let(::run)
+            return
         }
-        due?.let { WakeService.instance?.run(it.app) }
-        // Base the next alarm past this minute so an alarm delivered a little early can't repeat the same run.
-        reschedule(ctx, now.plusMinutes(1))
+        val at = LocalDateTime.ofInstant(Instant.ofEpochMilli(intent.getLongExtra("at", 0)), ZoneId.systemDefault())
+        // Several schedules at the same minute: the first one in the list wins.
+        list.firstOrNull { it.enabled && it.next(at.minusSeconds(1)) == at }?.let { run(it) }
+        reschedule(ctx, maxOf(at, LocalDateTime.now()))
     }
 
-    private fun pending(ctx: Context, id: String?) = PendingIntent.getBroadcast(
-        ctx, 0, Intent(ctx, AlarmReceiver::class.java).setAction(ALARM).putExtra("id", id),
+    private fun run(s: Schedule) = WakeService.instance?.run(s.app)
+
+    private fun pending(ctx: Context, code: Int, extras: Intent) = PendingIntent.getBroadcast(
+        ctx, code, Intent(ctx, AlarmReceiver::class.java).setAction(ALARM).putExtras(extras),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 

@@ -11,7 +11,7 @@ import java.util.UUID
 /** Alarm target, plus the adb interface (see README). Only adb (DUMP permission) or this app can send to it. */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Scheduler.ALARM) return Scheduler.onAlarm(ctx, intent.getStringExtra("id"))
+        if (intent.action == Scheduler.ALARM) return Scheduler.onAlarm(ctx, intent)
         try {
             resultData = command(ctx, intent)
         } catch (e: IllegalArgumentException) {
@@ -50,7 +50,8 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             "test" -> {
                 val seconds = intent.getIntExtra("in_seconds", 120)
-                Scheduler.set(ctx, System.currentTimeMillis() + seconds * 1000L, id ?: list.firstOrNull()?.id)
+                val s = if (id != null) find() else requireNotNull(list.firstOrNull()) { "no schedules" }
+                Scheduler.test(ctx, System.currentTimeMillis() + seconds * 1000L, s.id)
                 "alarm in ${seconds}s"
             }
             else -> throw IllegalArgumentException("unknown action $action")

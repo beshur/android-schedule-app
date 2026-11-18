@@ -79,7 +79,8 @@ fun App(resumed: Int) {
     val serviceOn = remember(resumed) { WakeService.instance != null }
     var editing by remember { mutableStateOf<Schedule?>(null) }
 
-    fun save(list: List<Schedule>) {
+    fun save(change: (List<Schedule>) -> List<Schedule>) {
+        val list = change(Store.load(ctx))
         Store.save(ctx, list)
         schedules = list
     }
@@ -89,8 +90,8 @@ fun App(resumed: Int) {
             initial = s,
             apps = apps,
             isNew = schedules.none { it.id == s.id },
-            onSave = { e -> save(if (schedules.any { it.id == e.id }) schedules.map { if (it.id == e.id) e else it } else schedules + e); editing = null },
-            onDelete = { save(schedules.filter { it.id != s.id }); editing = null },
+            onSave = { e -> save { l -> if (l.any { it.id == e.id }) l.map { if (it.id == e.id) e else it } else l + e }; editing = null },
+            onDelete = { save { l -> l.filter { it.id != s.id } }; editing = null },
             onCancel = { editing = null },
         )
         return
@@ -122,7 +123,7 @@ fun App(resumed: Int) {
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Switch(checked = s.enabled, onCheckedChange = { on -> save(schedules.map { if (it.id == s.id) it.copy(enabled = on) else it }) })
+                        Switch(checked = s.enabled, onCheckedChange = { on -> save { l -> l.map { if (it.id == s.id) it.copy(enabled = on) else it } } })
                     }
                 }
             }
@@ -333,7 +334,7 @@ fun CustomRepeatDialog(date: LocalDate, initial: Rule?, onPick: (Rule) -> Unit, 
                 }
                 Choice(r.count > 0, { r = r.copy(until = null, count = maxOf(r.count, 13)) }) {
                     Text("After")
-                    Stepper(maxOf(r.count, 13), 1) { r = r.copy(until = null, count = it) }
+                    Stepper(if (r.count > 0) r.count else 13, 1) { r = r.copy(until = null, count = it) }
                     Text("occurrences")
                 }
             }

@@ -52,6 +52,7 @@ data class Rule(
             )
             require(rule.interval >= 1 && rule.count >= 0) { "INTERVAL/COUNT out of range" }
             require(nth in -1..4 && (nth == 0 || (freq == Freq.MONTHLY && days.size == 1))) { "bad BYDAY ordinal" }
+            require(days.isEmpty() || freq == Freq.WEEKLY || nth != 0) { "BYDAY needs FREQ=WEEKLY, or an ordinal with MONTHLY" }
             return rule
         }
     }
