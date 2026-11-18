@@ -1,10 +1,17 @@
 # android-schedule-app
 
-Tiny Android TV app that, every day at a configured time (default 08:00):
+Android TV app that wakes the device on a schedule, turns the TV on and opens an app.
+
+Each run:
 
 1. wakes the device from standby,
 2. presses Home (on Android TV boxes this sends HDMI-CEC "Text View On", so the TV turns on),
-3. opens the configured app (if any).
+3. opens the schedule's app (optional).
+
+Schedules are managed in the app (it shows up on the TV home screen): pick the app, date, time and a repeat rule
+like Google Calendar's (does not repeat, daily, weekly, monthly on the Nth weekday, annually, every weekday, or
+custom: every N days/weeks/months/years, weekdays, monthly by day or weekday, ending never / on a date / after N times).
+If several schedules fall on the same minute, the first one in the list runs.
 
 ## Install
 
@@ -21,32 +28,28 @@ adb shell dumpsys deviceidle whitelist +net.buznik.schedule
 ```
 
 The `enabled_accessibility_services` line replaces the whole list; if other services are enabled, append ours with `:` instead.
+The accessibility service can also be turned on from the app.
 
-Enabling the accessibility service schedules the next run; it reschedules itself after every run and after reboot.
+## adb interface
 
-## Configure
-
-Settings are stored on the device; no rebuild needed. Any subset of extras works:
-
-```sh
-adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ei hour 7 --ei minute 30 --es app <package.name>
-```
-
-Find a package name with `adb shell pm list packages | grep -i <name>`. Result code `1` means the values were rejected (out of range, `--es` instead of `--ei`, or app not installed). `--es app ""` clears the app.
-
-Every successful configure call prints the saved settings as the broadcast result. To just read them:
+All commands go to one receiver and print their result; result code `1` means the request was rejected.
 
 ```sh
-adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ez show true
-adb shell dumpsys alarm | grep -A2 net.buznik.schedule   # next alarm
+R="-n net.buznik.schedule/.AlarmReceiver"
+adb shell am broadcast $R                                    # list schedules (JSON)
+adb shell am broadcast $R --es action add --es app <package> --ei hour 7 --ei minute 30 \
+    --es date 2026-11-18 --es rrule "'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR'"   # prints the new id
+adb shell am broadcast $R --es action update --es id <id> --ez enabled false
+adb shell am broadcast $R --es action delete --es id <id>
+adb shell am broadcast $R --es action run [--es id <id>]                  # run now
+adb shell am broadcast $R --es action test --ei in_seconds 120 [--es id <id>]  # run once in 2 min
 ```
 
-## Test
-
-```sh
-adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver                  # run now
-adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ei in_seconds 120  # run in 2 min
-```
+`add`/`update` accept any of `app`, `hour`, `minute` (`--ei`), `date` (`YYYY-MM-DD`), `rrule`, `enabled` (`--ez`).
+`rrule` is an RFC 5545 subset: `FREQ` (DAILY/WEEKLY/MONTHLY/YEARLY), `INTERVAL`, `BYDAY` (`MO,WE` for weekly; `3WE` or
+`-1FR` for monthly), `UNTIL=YYYYMMDD`, `COUNT`. An empty `rrule` means "does not repeat". `adb shell` runs the command through the device shell again, so a rule containing
+`;` needs the inner single quotes shown above. Find package names with
+`adb shell pm list packages | grep -i <name>`.
 
 ## Release signing
 
