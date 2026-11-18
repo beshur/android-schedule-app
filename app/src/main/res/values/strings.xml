@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Schedule</string>
+    <string name="accessibility_description">Wakes the device every morning, presses Home so the TV turns on over HDMI-CEC, and opens the configured app.</string>
+</resources>

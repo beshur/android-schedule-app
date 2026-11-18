@@ -1,0 +1,17 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "net.buznik.schedule"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "net.buznik.schedule"
+        minSdk 23
+        targetSdk 28
+        versionCode 1
+        versionName "1.0"
+    }
+
+}
