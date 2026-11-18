@@ -3,34 +3,74 @@ package net.buznik.schedule
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import org.json.JSONArray
+import java.time.LocalDate
+import java.time.LocalTime
+import java.util.UUID
 
+/** Alarm target, plus the adb interface (see README). Only adb (DUMP permission) or this app can send to it. */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        val p = WakeService.prefs(ctx)
-        val config = listOf("hour", "minute", "app").any(intent::hasExtra)
-        if (config) {
-            val hour = intent.intExtra("hour", p.getInt("hour", 8))
-            val minute = intent.intExtra("minute", p.getInt("minute", 0))
-            val app = if (intent.hasExtra("app")) intent.getStringExtra("app") else p.getString("app", "")
-            if (hour !in 0..23 || minute !in 0..59 || app == null ||
-                (app.isNotEmpty() && WakeService.launchIntent(ctx, app) == null)
-            ) {
-                resultCode = 1
-                return
+        if (intent.action == Scheduler.ALARM) return Scheduler.onAlarm(ctx, intent.getStringExtra("id"))
+        try {
+            resultData = command(ctx, intent)
+        } catch (e: IllegalArgumentException) {
+            resultCode = 1
+            resultData = e.message
+        } catch (e: java.time.DateTimeException) {
+            resultCode = 1
+            resultData = e.message
+        }
+    }
+
+    private fun command(ctx: Context, intent: Intent): String {
+        val list = Store.load(ctx)
+        val id = intent.getStringExtra("id")
+        fun find() = requireNotNull(list.find { it.id == id }) { "no schedule with id $id" }
+        return when (val action = intent.getStringExtra("action") ?: "list") {
+            "list" -> JSONArray(list.map { it.toJson() }).toString()
+            "add" -> {
+                val s = intent.applyTo(ctx, Schedule(UUID.randomUUID().toString().take(8)))
+                Store.save(ctx, list + s)
+                s.id
             }
-            p.edit().putInt("hour", hour).putInt("minute", minute).putString("app", app).apply()
-            WakeService.schedule(ctx, WakeService.nextRun(ctx))
+            "update" -> {
+                val s = intent.applyTo(ctx, find())
+                Store.save(ctx, list.map { if (it.id == s.id) s else it })
+                s.id
+            }
+            "delete" -> {
+                Store.save(ctx, list - find())
+                "deleted $id"
+            }
+            "run" -> {
+                val s = if (id != null) find() else requireNotNull(list.firstOrNull()) { "no schedules" }
+                requireNotNull(WakeService.instance) { "accessibility service is off" }.run(s.app)
+                "running ${s.id}"
+            }
+            "test" -> {
+                val seconds = intent.getIntExtra("in_seconds", 120)
+                Scheduler.set(ctx, System.currentTimeMillis() + seconds * 1000L, id ?: list.firstOrNull()?.id)
+                "alarm in ${seconds}s"
+            }
+            else -> throw IllegalArgumentException("unknown action $action")
         }
-        if (config || intent.hasExtra("show")) {
-            resultData = "%02d:%02d app=%s".format(p.getInt("hour", 8), p.getInt("minute", 0), p.getString("app", ""))
-            return
-        }
-        val delay = intent.getIntExtra("in_seconds", 0)
-        if (delay > 0) WakeService.schedule(ctx, System.currentTimeMillis() + delay * 1000L)
-        else WakeService.instance?.run()
+    }
+
+    private fun Intent.applyTo(ctx: Context, s: Schedule): Schedule {
+        val app = getStringExtra("app") ?: s.app
+        require(app.isEmpty() || WakeService.launchIntent(ctx, app) != null) { "app not installed: $app" }
+        return s.copy(
+            enabled = if (hasExtra("enabled")) getBooleanExtra("enabled", true) else s.enabled,
+            app = app,
+            date = getStringExtra("date")?.let(LocalDate::parse) ?: s.date,
+            time = LocalTime.of(int("hour", s.time.hour), int("minute", s.time.minute)),
+            rule = if (hasExtra("rrule")) Rule.parse(getStringExtra("rrule").orEmpty()) else s.rule,
+        )
     }
 
     @Suppress("DEPRECATION")
-    private fun Intent.intExtra(key: String, fallback: Int): Int =
-        if (!hasExtra(key)) fallback else extras?.get(key) as? Int ?: -1
+    private fun Intent.int(key: String, fallback: Int): Int =
+        if (!hasExtra(key)) fallback
+        else requireNotNull(extras?.get(key) as? Int) { "$key must be passed with --ei" }
 }
