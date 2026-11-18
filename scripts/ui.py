@@ -1,5 +1,5 @@
 """Tap UI elements by visible text via uiautomator. Usage: ui.py tap|long|next <text> (next = the element after it)"""
-import re, subprocess, sys, xml.etree.ElementTree as ET
+import re, subprocess, sys, time, xml.etree.ElementTree as ET
 
 def nodes():
     subprocess.run(["adb", "shell", "uiautomator", "dump", "/sdcard/ui.xml"], capture_output=True)
@@ -10,7 +10,11 @@ def nodes():
             yield t, n.get("bounds")
 
 cmd, text = sys.argv[1], sys.argv[2]
-found = list(nodes())
+for _ in range(5):
+    found = list(nodes())
+    if any(t == text for t, _ in found):
+        break
+    time.sleep(1)
 for i, (t, b) in enumerate(found):
     if t == text:
         if cmd == "next":
