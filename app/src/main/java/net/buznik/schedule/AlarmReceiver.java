@@ -8,8 +8,9 @@ import android.content.SharedPreferences;
 public class AlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
-        if (intent.hasExtra("hour") || intent.hasExtra("minute") || intent.hasExtra("app")) {
-            SharedPreferences p = WakeService.prefs(ctx);
+        SharedPreferences p = WakeService.prefs(ctx);
+        boolean config = intent.hasExtra("hour") || intent.hasExtra("minute") || intent.hasExtra("app");
+        if (config) {
             int hour = intExtra(intent, "hour", p.getInt("hour", 8));
             int minute = intExtra(intent, "minute", p.getInt("minute", 0));
             String app = intent.hasExtra("app") ? intent.getStringExtra("app") : p.getString("app", "");
@@ -20,6 +21,10 @@ public class AlarmReceiver extends BroadcastReceiver {
             }
             p.edit().putInt("hour", hour).putInt("minute", minute).putString("app", app).apply();
             WakeService.schedule(ctx, WakeService.nextRun(ctx));
+        }
+        if (config || intent.hasExtra("show")) {
+            setResultData(String.format("%02d:%02d app=%s",
+                    p.getInt("hour", 8), p.getInt("minute", 0), p.getString("app", "")));
             return;
         }
         int delay = intent.getIntExtra("in_seconds", 0);

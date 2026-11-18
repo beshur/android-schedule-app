@@ -2,6 +2,8 @@ plugins {
     id "com.android.application"
 }
 
+def buildNumber = (findProperty("buildNumber") ?: "1") as int
+
 android {
     namespace "net.buznik.schedule"
     compileSdk 34
@@ -10,8 +12,27 @@ android {
         applicationId "net.buznik.schedule"
         minSdk 23
         targetSdk 28
-        versionCode 1
-        versionName "1.0"
+        versionCode buildNumber
+        versionName "1.0.$buildNumber"
     }
 
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "release.p12")
+            storeType "pkcs12"
+            storePassword System.getenv("KEYSTORE_PASSWORD")
+            keyAlias "schedule"
+            keyPassword System.getenv("KEYSTORE_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+    }
 }

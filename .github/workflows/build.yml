@@ -4,11 +4,19 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -16,8 +24,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - run: gradle assembleDebug
-      - uses: actions/upload-artifact@v4
+
+      - if: github.ref != 'refs/heads/main'
+        run: gradle assembleDebug -PbuildNumber=${{ github.run_number }}
+      - if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
         with:
           name: schedule-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - if: github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          export KEYSTORE_PATH="$RUNNER_TEMP/release.p12"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+          gradle assembleRelease -PbuildNumber=${{ github.run_number }}
+          version="1.0.${{ github.run_number }}"
+          gh release view "v$version" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+          cp app/build/outputs/apk/release/app-release.apk "schedule-$version.apk"
+          gh release create "v$version" "schedule-$version.apk" --title "v$version" --generate-notes --latest --target "$GITHUB_SHA" -R "$GITHUB_REPOSITORY"

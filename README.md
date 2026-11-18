@@ -8,11 +8,13 @@ Tiny Android TV app that, every day at a configured time (default 08:00):
 
 ## Install
 
-Build artifacts come from GitHub Actions (`schedule-apk`). With ADB enabled on the device:
+Every push to `main` builds a signed APK and publishes it as the latest [release](../../releases/latest) (`v1.0.<build number>`). Other branches upload a debug APK as a workflow artifact.
+
+With ADB enabled on the device:
 
 ```sh
 adb connect <device-ip>:5555
-adb install app-debug.apk
+adb install -r schedule-<version>.apk
 adb shell settings put secure enabled_accessibility_services net.buznik.schedule/.WakeService
 adb shell settings put secure accessibility_enabled 1
 adb shell dumpsys deviceidle whitelist +net.buznik.schedule
@@ -32,11 +34,11 @@ adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ei hour 7 --ei mi
 
 Find a package name with `adb shell pm list packages | grep -i <name>`. Result code `1` means the values were rejected (out of range, `--es` instead of `--ei`, or app not installed). `--es app ""` clears the app.
 
-Check the saved settings and the next alarm:
+Every successful configure call prints the saved settings as the broadcast result. To just read them:
 
 ```sh
-adb shell run-as net.buznik.schedule cat shared_prefs/schedule.xml
-adb shell dumpsys alarm | grep -A2 net.buznik.schedule
+adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ez show true
+adb shell dumpsys alarm | grep -A2 net.buznik.schedule   # next alarm
 ```
 
 ## Test
@@ -45,3 +47,7 @@ adb shell dumpsys alarm | grep -A2 net.buznik.schedule
 adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver                  # run now
 adb shell am broadcast -n net.buznik.schedule/.AlarmReceiver --ei in_seconds 120  # run in 2 min
 ```
+
+## Release signing
+
+`main` builds need two repository secrets: `KEYSTORE_BASE64` (a base64-encoded PKCS12 keystore with key alias `schedule`) and `KEYSTORE_PASSWORD` (used for both the store and the key). Keep the keystore: updates signed with a different key cannot be installed over the existing app.
