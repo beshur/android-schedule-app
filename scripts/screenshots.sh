@@ -27,7 +27,7 @@ sleep 3
 adb shell am start -W -n net.buznik.schedule/.MainActivity
 shot 02-list
 
-tap "Every weekday (Monday to Friday)"
+tap "08:00 · Every weekday (Monday to Friday)"
 shot 03-editor
 tap "Every weekday (Monday to Friday)"
 shot 04-repeat-menu
