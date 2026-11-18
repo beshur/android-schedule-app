@@ -31,11 +31,12 @@ tap "08:00 · Every weekday (Monday to Friday)"
 shot 03-editor
 tap "Every weekday (Monday to Friday)"
 shot 04-repeat-menu
-tap "Custom…"
+# Dropdown menus are popups that uiautomator doesn't dump: tap by position / use the D-pad.
+adb shell input tap 146 743
 shot 05-custom-weekly
 tap "week"
 shot 06-custom-unit-menu
-tap "month"
+for k in DPAD_DOWN DPAD_DOWN DPAD_DOWN DPAD_CENTER; do adb shell input keyevent KEYCODE_$k; done
 shot 07-custom-monthly
 tap "Cancel"
 python3 scripts/ui.py next "Edit schedule" || echo "skipped app button"
