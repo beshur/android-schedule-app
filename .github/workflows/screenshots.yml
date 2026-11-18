@@ -2,6 +2,11 @@ name: screenshots
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - app/src/main/**
+      - scripts/**
+      - .github/workflows/screenshots.yml
 
 jobs:
   tv:
